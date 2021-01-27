@@ -126,7 +126,7 @@ function parseCommand(text) {
       // Get command and initial args
       const command = getCommandByName(commandMatcher.groups['command']);
       var args = commandMatcher.groups['args'] ? groupArgs(commandMatcher.groups['args'].trim().split(' ')) : [];
-      args.unshift(commandMatcher.groups['fullCommand'].slice(commandPrefix.length))
+      args.unshift(commandMatcher.groups['fullCommand'].slice(commandMatcher.groups['fullCommand'].indexOf(commandMatcher.groups['command'])))
 
       if (command) {
         // Display command that was run if command should be visible
