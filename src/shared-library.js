@@ -41,12 +41,6 @@ class Command {
 
     return this.callback(args)
   }
-  // TODO: Finish argument parsing
-  parseArgs(args) {
-    for (arg of args) {
-
-    }
-  }
 }
 
 function enableOutput() {
