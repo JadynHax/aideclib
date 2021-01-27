@@ -85,7 +85,7 @@ function parseCommand(text) {
   if (commandMatcher) {
     // Built-in help command
     if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('help'))) {
-      stop = true;     // Make sure to stop AI output
+      state.stop = true;     // Make sure to stop AI output
       output += `> ${commandMatcher.groups['fullCommand']}\n\nHelp command output:\n${'-'.repeat(40)}`;
 
       if (!commandMatcher.groups['helpTopic']) {
@@ -108,7 +108,7 @@ function parseCommand(text) {
 
     // Built-in prefix command
     } else if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('prefix'))) {
-      stop = true;     // Make sure to stop AI output
+      state.stop = true;     // Make sure to stop AI output
       output += `> ${commandMatcher.groups['fullCommand']}\n`;
 
       if (!commandMatcher.groups['prefix']) {
@@ -214,7 +214,7 @@ class Command {
     this.visible = visible;
   }
   run(args) {
-    stop = true;
+    state.stop = true;
 
     if (!this.predicate(args)) {
       return `${this.usage}\n\n${this.description}`;
