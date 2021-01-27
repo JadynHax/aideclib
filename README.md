@@ -27,12 +27,23 @@ Hidden commands are achieved by prefixing the command name by one or more hyphen
 When documenting your commands, you should follow the same specifications as a UNIX command line program. You should have a short description, all arguments should be clearly listed and explained, as well as any more complex aspects of the command being explained in their own sections.
 
 ### Callback and Predicate Specifications
-Callback functions should accept a single parameter. This parameter will be an array of strings, and represents the positional arguments passed to the command. The callback should return a string when complete, which is the text output to be displayed by the command. A sample callback function is shown below.
+Callback functions should accept a single parameter. This parameter will be an array of strings, and contains the full text of the command (with the command prefix removed) and the positional arguments passed to the command. The callback should return a string when complete, which is the text output to be displayed by the command. A sample callback function is shown below.
 
 ```js
 function greet(args) {
-    return `Hello, ${args[0]}!`
+    return `Hello, ${args[1]}!`;
 }
 ```
 
 The predicate function for a command will recieve the exact same arguments as the callback will. The predicate must instead simply determine whether the arguments are of the required number, format, etc. to be parsed by the callback and return `true` or `false` based on this.
+
+### Advanced Callback Usage
+If you'd like to implement your own methods of parsing arguments or processing the command in general, the first item in the `args` array passed to the callback is the full text used to invoke the command, sanitized of the AI Dungeon text from each input mode and the command prefix. This allows for the ability to make a simple `echo` command like the one found on most Unix platforms. For example:
+
+```js
+function echo(args) {
+    return args[0].slice(5);
+}
+```
+
+This allows for more flexibility with the implementation in other use cases as well. For example, the ability to implement argument parsing based on escapes and context rather than relying on the bootleg parsing present in AIDECLib by default is quite useful. This also allows for implementation of various keyword- / flag-based argument systems, no longer requiring that commands accept solely positional arguments.
