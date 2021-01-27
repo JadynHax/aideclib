@@ -1,49 +1,28 @@
 /*
-MIT License
+  MIT License
 
-Copyright (c) 2021 JaonHax
+  Copyright (c) 2021 JaonHax
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
 */
 
-// Command class to make for easier command definitions.
-class Command {
-  constructor(name, usage, description, callback, predicate = function(args) {
-    return true;
-  }, visible=true) {
-    this.name = name;
-    this.description = description;
-    this.callback = callback;
-    this.predicate = predicate;
-    this.visible = visible;
-  }
-  run(args) {
-    stop = true;
-
-    if (!this.predicate(args)) {
-      return `${this.usage}\n\n${this.description}`;
-    }
-
-    return this.callback(args);
-  }
-}
-
+// Persistent output manipulation for commands that require it.
 function enableOutput() {
   state.stopped = false;
 }
@@ -56,53 +35,18 @@ function toggleOutput() {
   state.stopped = !state.stopped;
 }
 
-function groupArgs(args) {
-  // Change if you want to have different delimiters. Format is either one
-  // string (used on both sides), or an array of two strings, one for opening,
-  // one for closing.
-  const delims = ['"', "'", ["[", "]"], ["(", ")"], ["{", "}"]];
 
-  // Set up some predefined variables for parsing argument grouping
-  var resultArgs = [];
-  var delim = '';
-  var combiner = [];
+// Easy command addition function
+function addCommand(name, usage, description, callback, predicate=function() {
+    return true
+  }, visible=true) {
+  const command = new Command(name, usage, description, callback, predicate, visible);
 
-  // Iterate through args, using quotations to group arguments possessing spaces
-  for (var item of args) {
-    if (!delim) {
-      for (var delimiter of delims) {
-        let open = typeof delimiter === "string" ? delimiter : delimiter[0];
-        let close = typeof delimiter === "string" ? delimiter : delimiter[1];
-
-        if (item.startsWith(open)) {
-          delim = close;
-          combiner.push(item.slice(open.length));
-          break;
-        }
-      }
-
-      if (!combiner) {
-        resultArgs.push(item);
-      }
-
-    } else if (item.endsWith(delim)) {
-      combiner.push(item.slice(0, -delim.length));
-      resultArgs.push(combiner.join(' '));
-      delim = '';
-      combiner = [];
-
-    } else {
-      combiner.push(item);
-    }
-  }
-
-  if (combiner) {
-    resultArgs.push(combiner.join(' '));
-  }
-
-  return resultArgs;
+  state.commands.push(command);
 }
 
+
+// Command retrieval functions
 function getCommandByName(name) {
   name = name.toLowerCase()
 
@@ -113,6 +57,20 @@ function getCommandByName(name) {
   }
 }
 
+function getCommands() {
+  var resultCommands = [];
+
+  for (var command of state.commands) {
+    if (!(command.name.startsWith('-') || command.name.startsWith('_'))) {
+      resultCommands.push(command);
+    }
+  }
+
+  return resultCommands;
+}
+
+
+// Parse text to see if there are any commands
 function parseCommand(text) {
   var output = "";
   const defaultPrefix = "!";    // Change "!" to what you want the default command prefix to be.
@@ -138,7 +96,7 @@ function parseCommand(text) {
         output += `\nUsage: prefix [new_prefix]\n\nDisplays the current command prefix or sets a new one.\n\nPositional arguments:\n    [new_prefix]  The new command prefix to set.`;
       }
 
-      for (var command of state.commands) {
+      for (var command of getCommands()) {
         if (!commandMatcher.groups['helpTopic']) {
           output += `\n    ${command.name} ${" ".repeat(Math.max(20 - command.name.length, 0))} ${command.description.split('.')[0]}.`;
         } else if (commandMatcher.groups['helpTopic'].toLowerCase() == command.name.toLowerCase()) {
@@ -187,14 +145,87 @@ function parseCommand(text) {
   return text;    // If no command, display text as usual
 }
 
-function addCommand(name, usage, description, callback, predicate=function() {
-      return true
-      }, visible=true) {
-  const command = new Command(name, usage, description, callback, predicate, visible);
 
-  state.commands.push(command);
+// Argument grouper so users can specify arguments that have spaces.
+function groupArgs(args) {
+  // Change if you want to have different delimiters. Format is either one
+  // string (used on both sides), or an array of two strings, one for opening,
+  // one for closing.
+  const delims = ['"', "'", ["[", "]"], ["(", ")"], ["{", "}"]];
+
+  // Set up some predefined variables for parsing argument grouping
+  var resultArgs = [];
+  var delim = '';
+  var combiner = [];
+
+  // Iterate through args, using quotations to group arguments possessing spaces
+  for (var item of args) {
+    if (!delim) {
+      for (var delimiter of delims) {
+        // Process opening vs. closing delimiters if the delimiter is an array
+        let open = typeof delimiter === "array" ? delimiter[0] : delimiter;
+        let close = typeof delimiter === "array" ? delimiter[1] : delimiter;
+
+        // Check if the item has the opening delimiter
+        if (item.startsWith(open)) {
+          delim = close;    // Save closing delimiter so we can check for it later
+          combiner.push(item.slice(open.length));
+          break;
+        }
+      }
+
+      // If we passed through the loop without needing to combine, push the argument to the result array
+      if (!combiner) {
+        resultArgs.push(item);
+      }
+
+    // If the item ends with the closing delimiter, join the combination array and push to the results,
+    // resetting all variables involved
+    } else if (item.endsWith(delim)) {
+      combiner.push(item.slice(0, -delim.length));
+      resultArgs.push(combiner.join(' '));
+      delim = '';
+      combiner = [];
+
+    // If the item doesn't end with the closing delimiter, continue to add items to the combination array
+    } else {
+      combiner.push(item);
+    }
+  }
+
+  // If there are still items remaining in the combination array, join them and push to the results
+  if (combiner) {
+    resultArgs.push(combiner.join(' '));
+  }
+
+  return resultArgs;
 }
 
+
+// Main command class
+class Command {
+  constructor(name, usage, description, callback, predicate = function(args) {
+    return true;
+  }, visible=true) {
+    this.name = name;
+    this.description = description;
+    this.callback = callback;
+    this.predicate = predicate;
+    this.visible = visible;
+  }
+  run(args) {
+    stop = true;
+
+    if (!this.predicate(args)) {
+      return `${this.usage}\n\n${this.description}`;
+    }
+
+    return this.callback(args);
+  }
+}
+
+
+// Diff utilities for the automatic closest command detection
 function getCloseMatches(word, possibilities, n = 3, cutoff = 0.6) {
   if (n <= 0) throw "n must be > 0: " + n;
   if (!(0.0 <= cutoff <= 1.0)) throw "cutoff must be in [0.0, 1.0]: " + cutoff;
@@ -229,14 +260,14 @@ Copyright (c) 2007, Snowtide Informatics Systems, Inc.
 All rights reserved.
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
-	* Redistributions of source code must retain the above copyright notice, this
-		list of conditions and the following disclaimer.
-	* Redistributions in binary form must reproduce the above copyright notice,
-		this list of conditions and the following disclaimer in the documentation
-		and/or other materials provided with the distribution.
-	* Neither the name of the Snowtide Informatics Systems nor the names of its
-		contributors may be used to endorse or promote products derived from this
-		software without specific prior written permission.
+  * Redistributions of source code must retain the above copyright notice, this
+      list of conditions and the following disclaimer.
+  * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+  * Neither the name of the Snowtide Informatics Systems nor the names of its
+      contributors may be used to endorse or promote products derived from this
+      software without specific prior written permission.
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
