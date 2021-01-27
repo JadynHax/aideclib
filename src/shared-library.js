@@ -25,189 +25,198 @@ SOFTWARE.
 // Command class to make for easier command definitions.
 class Command {
   constructor(name, usage, description, callback, predicate = function(args) {
-    return true
+    return true;
   }, visible=true) {
-    this.name = name
-    this.description = description
-    this.callback = callback
-    this.predicate = predicate
-    this.visible = visible
+    this.name = name;
+    this.description = description;
+    this.callback = callback;
+    this.predicate = predicate;
+    this.visible = visible;
   }
   run(args) {
-    stop = true
+    stop = true;
+
     if (!this.predicate(args)) {
-      return this.usage + "\n\n" + this.description
+      return `${this.usage}\n\n${this.description}`;
     }
 
-    return this.callback(args)
+    return this.callback(args);
   }
 }
 
 function enableOutput() {
-  state.stopped = false
+  state.stopped = false;
 }
 
 function disableOutput() {
-  state.stopped = true
+  state.stopped = true;
 }
 
 function toggleOutput() {
-  state.stopped = !state.stopped
+  state.stopped = !state.stopped;
 }
 
 function groupArgs(args) {
   // Change if you want to have different delimiters. Format is either one
   // string (used on both sides), or an array of two strings, one for opening,
   // one for closing.
-  const delims = ['"', "'"]
+  const delims = ['"', "'", ["[", "]"], ["(", ")"], ["{", "}"]];
 
   // Set up some predefined variables for parsing argument grouping
-  var resultArgs = []
-  var delim = ''
-  var combiner = []
+  var resultArgs = [];
+  var delim = '';
+  var combiner = [];
 
   // Iterate through args, using quotations to group arguments possessing spaces
   for (var item of args) {
     if (!delim) {
       for (var delimiter of delims) {
-        let open = typeof delimiter === "string" ? delimiter : delimiter[0]
-        let close = typeof delimiter === "string" ? delimiter : delimiter[1]
+        let open = typeof delimiter === "string" ? delimiter : delimiter[0];
+        let close = typeof delimiter === "string" ? delimiter : delimiter[1];
 
         if (item.startsWith(open)) {
-          delim = close
-          combiner.push(item.slice(open.length))
-          break
+          delim = close;
+          combiner.push(item.slice(open.length));
+          break;
         }
       }
 
       if (!combiner) {
-        resultArgs.push(item)
+        resultArgs.push(item);
       }
 
     } else if (item.endsWith(delim)) {
-      combiner.push(item.slice(0, -delim.length))
-      resultArgs.push(combiner.join(' '))
-      delim = ''
-      combiner = []
+      combiner.push(item.slice(0, -delim.length));
+      resultArgs.push(combiner.join(' '));
+      delim = '';
+      combiner = [];
 
     } else {
-      combiner.push(item)
+      combiner.push(item);
     }
   }
 
-  return resultArgs
+  if (combiner) {
+    resultArgs.push(combiner.join(' '));
+  }
+
+  return resultArgs;
+}
+
+function getCommandByName(name) {
+  name = name.toLowerCase()
+
+  for (var command of state.commands) {
+    if (command.name.toLowerCase() == name) {
+      return command
+    }
+  }
 }
 
 function parseCommand(text) {
-  var output = ""
-
-  // Change "!" to the character you want players to use for running commands
-  const commandPrefix = state.commandPrefix || "!"
+  var output = "";
+  const defaultPrefix = "!";    // Change "!" to what you want the default command prefix to be.
+  const commandPrefixRe = `(?:${state.commandPrefix})|(?:${defaultPrefix})`;    // Make it so the default prefix or the user-set prefix can be used.
 
   // Set up the actual regular expression so we can use it to parse commands
   const commandRegExp = new RegExp(
-    '^\\s?(?:>\\sYou\\s(?:say\\s("))?)?(?<fullCommand>(?:!help(?:\\s(?<helpTopic>[\\w-_0-9]+?))?)|(?:!prefix(?:\\s(?<prefix>.+))?)|(?:' +
-    commandPrefix + '(?<command>[\\w-_0-9]+?)(?:\\s(?<args>.+?))?))\\.?\\1$',
-    "im")
-  const commandMatcher = text.match(commandRegExp)    // Match any command present in the text
+    `^\\s?(?:>\\sYou\\s(?:say\\s("))?)?(?<fullCommand>(?:(?:${commandPrefixRe}|!)help(?:\\s(?<helpTopic>[\\w-_0-9]+?))?)|(?:(?:${commandPrefixRe}|!)prefix(?:\\s(?<prefix>.+))?)|(?:${commandPrefixRe}(?<command>[\\w-_0-9]+?)(?:\\s(?<args>.+?))?))\\.?\\1$`,
+    "im");
+  const commandMatcher = text.match(commandRegExp);    // Match if there's a command present in the text
 
   if (commandMatcher) {
     // Built-in help command
-    if (commandMatcher.groups['fullCommand'].startsWith('!help')) {
-      stop = true     // Make sure to stop AI output
-      output += '> ' + commandMatcher.groups['fullCommand'] +
-        "\n\nHelp command output:\n" + '-'.repeat(40)
+    if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('help'))) {
+      stop = true;     // Make sure to stop AI output
+      output += `> ${commandMatcher.groups['fullCommand']}\n\nHelp command output:\n${'-'.repeat(40)}`;
 
-      for (command of state.commands) {
+      if (!commandMatcher.groups['helpTopic']) {
+        output += `\n    help                    Displays detailed help about a command or lists all commands.\n    prefix                  Displays the current command prefix or sets a new one.`;
+      } else if (commandMatcher.groups['helpTopic'].toLowerCase() == 'help') {
+        output += `\nUsage: help [topic]\n\nDisplays detailed help about a command or lists all commands.\n\nPositional arguments:\n    [topic]       The command to display detailed help about.`;
+      } else if (commandMatcher.groups['helpTopic'].toLowerCase() == 'prefix') {
+        output += `\nUsage: prefix [new_prefix]\n\nDisplays the current command prefix or sets a new one.\n\nPositional arguments:\n    [new_prefix]  The new command prefix to set.`;
+      }
+
+      for (var command of state.commands) {
         if (!commandMatcher.groups['helpTopic']) {
-          output += "\n    " + command.name + " ".repeat(Math.max(20 - command
-            .name.length, 0)) + command.description.split('.')[0] + "."
-
-        } else if (commandMatcher.groups['helpTopic'].toLowerCase() == command
-          .name.toLowerCase()) {
-          output += "\n" + command.usage + "\n\n" + command.description
-
+          output += `\n    ${command.name} ${" ".repeat(Math.max(20 - command.name.length, 0))} ${command.description.split('.')[0]}.`;
+        } else if (commandMatcher.groups['helpTopic'].toLowerCase() == command.name.toLowerCase()) {
+          output += `\n${command.usage}\n\n${command.description}`;
         }
       }
 
-      return output + '\n'
+      return `${output}\n`;
 
     // Built-in prefix command
-    } else if (commandMatcher.groups['fullCommand'].startsWith('!prefix')) {
-      stop = true     // Make sure to stop AI output
-      output += '> ' + commandMatcher.groups['fullCommand'] + '\n'
+    } else if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('prefix'))) {
+      stop = true;     // Make sure to stop AI output
+      output += `> ${commandMatcher.groups['fullCommand']}\n`;
 
       if (!commandMatcher.groups['prefix']) {
-        output += 'The current command prefix is "' + commandPrefix + '".'
-
+        output += state.commandPrefix ? `Your current command prefixes are "${state.commandPrefix}" and "${defaultPrefix}".` : `Your current command prefix is "${defaultPrefix}"`;
       } else {
-        state.commandPrefix = commandMatcher.groups['prefix']
-        output += 'The command prefix has now been set to "' + state
-          .commandPrefix + '".'
+        state.commandPrefix = commandMatcher.groups['prefix'];
+        output += `The command prefix has now been set to "${state.commandPrefix}".`;
       }
 
-      return output + '\n'
+      output += `\nRemember that for the "prefix" and "help" commands, you can always use the built-in "!" prefix!`;
+
+      return `${output}\n`;
 
     } else {
       // Get command and initial args
-      const inputCommand = commandMatcher.groups['command']
-      var args = commandMatcher.groups['args'] ? groupArgs(commandMatcher
-        .groups['args'].trim().split(' ')) : []
+      const command = getCommandByName(commandMatcher.groups['command']);
+      var args = commandMatcher.groups['args'] ? groupArgs(commandMatcher.groups['args'].trim().split(' ')) : [];
+      args.unshift(commandMatcher.groups['fullCommand'].slice(commandPrefix.length))
 
-      // Case-insensitively match the input command to the existing commands
-      for (command of state.commands) {
-        if (command.name.toLowerCase() == inputCommand.toLowerCase()) {
-          // Display command that was run if command should be visible
-          if (command.visible) {
-            output += '> ' + commandMatcher.groups['fullCommand'] + '\n'
-          }
-
-          output += command.run(args)     // Display the command's text output
-          return output + '\n'
+      if (command) {
+        // Display command that was run if command should be visible
+        if (command.visible) {
+          output += `> ${commandMatcher.groups['fullCommand']}\n`;
         }
-      }
 
-      output = '> ' + commandMatcher.groups['fullCommand'] + '\n' +
-        commandMatcher.groups['command'] +
-        'is not an available command!\nDid you mean one of these?\n    ' +
-        getCloseMatches(commandMatcher.groups['command'], state.commands, 5)
-        .join('\n    ')
+        output += command.run(args);    // Display the command's text output
+        return `${output}\n`;
+      } else {
+        return `> ${commandMatcher.groups['fullCommand']}\n"${commandMatcher.groups['command']}" is not an available command!\nDid you mean one of these?\n    ${getCloseMatches(commandMatcher.groups['command'], state.commands.map(function(command){return command.name}), 5).join('\n    ')}`;
+      }
     }
   }
 
-  return text   // If no command, display text as usual
+  return text;    // If no command, display text as usual
 }
 
 function addCommand(name, usage, description, callback, predicate=function() {
       return true
       }, visible=true) {
-  const command = new Command(name, usage, description, callback, predicate, visible)
+  const command = new Command(name, usage, description, callback, predicate, visible);
 
-  state.commands.push(command)
+  state.commands.push(command);
 }
 
 function getCloseMatches(word, possibilities, n = 3, cutoff = 0.6) {
   if (n <= 0) throw "n must be > 0: " + n;
   if (!(0.0 <= cutoff <= 1.0)) throw "cutoff must be in [0.0, 1.0]: " + cutoff;
 
-  result = []
-  s = difflib.SequenceMatcher()
-  s.set_seq2(word)
+  result = [];
+  s = difflib.SequenceMatcher();
+  s.set_seq2(word);
 
   for (x of possibilities) {
-    s.set_seq1(x)
+    s.set_seq1(x);
 
     if (s.real_quick_ratio() >= cutoff && s.quick_ratio() >= cutoff && s
     .ratio() >= cutoff) {
-      result.push([s.ratio(), x])
+      result.push([s.ratio(), x]);
     }
   }
 
   result.sort(function(a, b) {
-    b[0] - a[0]
+    return b[0] - a[0];
   })
   return result.slice(0, n).map(function(item) {
-    return item[1]
+    return item[1];
   })
 }
 
