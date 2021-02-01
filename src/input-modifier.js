@@ -2,19 +2,16 @@
 const modifier = (text) => {
   // Define the persisting stop attribute of state upon starting the adventure
   if (state.stopped == undefined) {
-    state.stopped = false
+    state.stopped = false;
   }
 
-  // Define the command array as well
-  if (state.commands == undefined) {
-    state.commands = []
-  }
+  // Define the command array
+  state.commands = [];
+
+  // Add addCommand calls here
 
   // Parse any commands present in text
-  modifiedText = parseCommand(text)
-
-  // Set stop to our persistent stop attribute
-  stop = stop || state.stopped
+  modifiedText = parseCommand(text);
 
   return { text: modifiedText }
 }
