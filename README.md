@@ -47,3 +47,41 @@ function echo(args) {
 ```
 
 This allows for more flexibility with the implementation in other use cases as well. For example, the ability to implement argument parsing based on escapes and context rather than relying on the bootleg parsing present in AIDECLib by default is quite useful. This also allows for implementation of various keyword- / flag-based argument systems, no longer requiring that commands accept solely positional arguments.
+
+### Allowing Users to Run Your Command
+As you can see, there are three separate files within AIDECLib. Each of these is representative of a different tab in the AI Dungeon scripting interface. Comments have been placed marking locations to place different parts of your commands, but I feel some of this needs further explanation for anyone not familiar with JavaScript.
+
+To add our demonstration command `greet` to the list of commands that users can run, you need to edit the input modifier like so:
+
+```js
+const modifier = (text) => {
+  // Make sure state.stop (the temporary version of state.stopped) is false by default
+  state.stop = false;
+
+  // Define the persisting stop attribute of state upon starting the adventure
+  if (state.stopped == undefined) {
+    state.stopped = true;
+  }
+
+  // Define the command array
+  state.commands = [];
+
+  addCommand(
+    "greet",
+    "Usage: greet <name>",
+    "A command used to say hello to someone.\n\nPositional arguments:\n\t<name>\t\tThe name of the person you want to greet.",
+    greet,
+  );
+
+  // Parse any commands present in text
+  modifiedText = parseCommand(text) || text
+
+  return { text: modifiedText }
+}
+
+// Don't modify this part
+modifier(text)
+
+```
+
+Note the call to `addCommand()`, and that its parameters are the same as `Command()`; `addCommand()` just does the work of adding your command to the command array for you.
