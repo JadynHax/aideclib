@@ -8,6 +8,8 @@ const modifier = (text) => {
   // Define the command array
   state.commands = [];
 
+  // Add addCommand calls here
+
   // Parse any commands present in text
   modifiedText = parseCommand(text);
 
