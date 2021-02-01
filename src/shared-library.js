@@ -27,6 +27,19 @@ const commandPrefix = String.raw`/`; // Change the "!" to the character you want
 // Command callback definitions
 // Insert your own callbacks here.
 
+// Persistent output manipulation for commands that require it.
+function enableOutput() {
+  state.stopped = false;
+}
+
+function disableOutput() {
+  state.stopped = true;
+}
+
+function toggleOutput() {
+  state.stopped = !state.stopped;
+}
+
 
 // Easy command addition function
 function addCommand(name, usage, description, callback, predicate=function() {
