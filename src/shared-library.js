@@ -22,23 +22,15 @@
   SOFTWARE.
 */
 
-// Persistent output manipulation for commands that require it.
-function enableOutput() {
-  state.stopped = false;
-}
+const commandPrefix = String.raw`/`; // Change the "!" to the character you want as the command prefix
 
-function disableOutput() {
-  state.stopped = true;
-}
-
-function toggleOutput() {
-  state.stopped = !state.stopped;
-}
+// Command callback definitions
+// Insert your own callbacks here.
 
 
 // Easy command addition function
 function addCommand(name, usage, description, callback, predicate=function() {
-    return true
+    return true;
   }, visible=true) {
   const command = new Command(name, usage, description, callback, predicate, visible);
 
@@ -48,11 +40,11 @@ function addCommand(name, usage, description, callback, predicate=function() {
 
 // Command retrieval functions
 function getCommandByName(name) {
-  name = name.toLowerCase()
+  name = name.toLowerCase();
 
   for (var command of state.commands) {
     if (command.name.toLowerCase() == name) {
-      return command
+      return command;
     }
   }
 }
@@ -72,72 +64,81 @@ function getCommands() {
 
 // Parse text to see if there are any commands
 function parseCommand(text) {
-  var output = "";
-  const defaultPrefix = "!";    // Change "!" to what you want the default command prefix to be.
-  const commandPrefixRe = `(?:${state.commandPrefix})|(?:${defaultPrefix})`;    // Make it so the default prefix or the user-set prefix can be used.
+  if (text !== undefined) {
+    var output = "";
+    const defaultPrefix = commandPrefix;
+    const commandPrefixRe = state.commandPrefix !== undefined ? `(?:${state.commandPrefix})|(?:${defaultPrefix})` : `(?:${defaultPrefix})`;    // Make it so the default prefix or the user-set prefix can be used.
 
-  // Set up the actual regular expression so we can use it to parse commands
-  const commandRegExp = new RegExp(
-    `^\\s?(?:>\\sYou\\s(?:say\\s("))?)?(?<fullCommand>(?:(?:${commandPrefixRe}|!)help(?:\\s(?<helpTopic>[\\w-_0-9]+?))?)|(?:(?:${commandPrefixRe}|!)prefix(?:\\s(?<prefix>.+))?)|(?:${commandPrefixRe}(?<command>[\\w-_0-9]+?)(?:\\s(?<args>.+?))?))\\.?\\1$`,
-    "im");
-  const commandMatcher = text.match(commandRegExp);    // Match if there's a command present in the text
+    // Set up the actual regular expression so we can use it to parse commands
+    const commandRegExp = new RegExp(
+      `^\\n*\\s*(?:>\\sYou\\s(?:say\\s("))?)?(?<fullCommand>(?:(?:${commandPrefixRe}|/)help(?:\\s(?<helpTopic>[\\w-_0-9]+?))?)|(?:(?:${commandPrefixRe}|/)prefix(?:\\s(?<prefix>.+))?)|(?:${commandPrefixRe}(?<command>[\\w-_0-9]+?)(?:\\s(?<args>.+?))?))\\.?\\1\\n*$`,
+      "i");
+    const commandMatcher = text.match(commandRegExp);    // Match if there's a command present in the text
 
-  if (commandMatcher) {
-    // Built-in help command
-    if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('help'))) {
-      state.stop = true;     // Make sure to stop AI output
-      output += `> ${commandMatcher.groups['fullCommand']}\n\nHelp command output:\n${'-'.repeat(40)}`;
+    if (commandMatcher) {
+      // Built-in help command
+      if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('help'))) {
+        state.stop = true;     // Make sure to stop AI output
+        output += `\n> ${commandMatcher.groups['fullCommand']}\n\nHelp command output:\n${'-'.repeat(40)}`;
 
-      if (!commandMatcher.groups['helpTopic']) {
-        output += `\n    help                    Displays detailed help about a command or lists all commands.\n    prefix                  Displays the current command prefix or sets a new one.`;
-      } else if (commandMatcher.groups['helpTopic'].toLowerCase() == 'help') {
-        output += `\nUsage: help [topic]\n\nDisplays detailed help about a command or lists all commands.\n\nPositional arguments:\n    [topic]       The command to display detailed help about.`;
-      } else if (commandMatcher.groups['helpTopic'].toLowerCase() == 'prefix') {
-        output += `\nUsage: prefix [new_prefix]\n\nDisplays the current command prefix or sets a new one.\n\nPositional arguments:\n    [new_prefix]  The new command prefix to set.`;
-      }
-
-      for (var command of getCommands()) {
         if (!commandMatcher.groups['helpTopic']) {
-          output += `\n    ${command.name} ${" ".repeat(Math.max(20 - command.name.length, 0))} ${command.description.split('.')[0]}.`;
-        } else if (commandMatcher.groups['helpTopic'].toLowerCase() == command.name.toLowerCase()) {
-          output += `\n${command.usage}\n\n${command.description}`;
-        }
-      }
-
-      return `${output}\n`;
-
-    // Built-in prefix command
-    } else if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('prefix'))) {
-      state.stop = true;     // Make sure to stop AI output
-      output += `> ${commandMatcher.groups['fullCommand']}\n`;
-
-      if (!commandMatcher.groups['prefix']) {
-        output += state.commandPrefix ? `Your current command prefixes are "${state.commandPrefix}" and "${defaultPrefix}".` : `Your current command prefix is "${defaultPrefix}"`;
-      } else {
-        state.commandPrefix = commandMatcher.groups['prefix'];
-        output += `The command prefix has now been set to "${state.commandPrefix}".`;
-      }
-
-      output += `\nRemember that for the "prefix" and "help" commands, you can always use the built-in "!" prefix!`;
-
-      return `${output}\n`;
-
-    } else {
-      // Get command and initial args
-      const command = getCommandByName(commandMatcher.groups['command']);
-      var args = commandMatcher.groups['args'] ? groupArgs(commandMatcher.groups['args'].trim().split(' ')) : [];
-      args.unshift(commandMatcher.groups['fullCommand'].slice(commandMatcher.groups['fullCommand'].indexOf(commandMatcher.groups['command'])))
-
-      if (command) {
-        // Display command that was run if command should be visible
-        if (command.visible) {
-          output += `> ${commandMatcher.groups['fullCommand']}\n`;
+          output += `\n\thelp\t\t\t\tDisplays detailed help about a command or lists all commands.\n\tprefix\t\t\tDisplays the current command prefix or sets a new one.`;
+        } else if (commandMatcher.groups['helpTopic'].toLowerCase() == 'help') {
+          output += `\nUsage: help [topic]\n\nDisplays detailed help about a command or lists all commands.\n\nPositional arguments:\n\t[topic]\t\tThe command to display detailed help about.`;
+        } else if (commandMatcher.groups['helpTopic'].toLowerCase() == 'prefix') {
+          output += `\nUsage: prefix [new_prefix]\n\nDisplays the current command prefix or sets a new one.\n\nPositional arguments:\n\t[new_prefix]\tThe new command prefix to set.`;
         }
 
-        output += command.run(args);    // Display the command's text output
+        for (var command of getCommands()) {
+          if (!commandMatcher.groups['helpTopic']) {
+            output += `\n\t${command.name}\t\t\t${command.description.split('.')[0]}.`;
+          } else if (commandMatcher.groups['helpTopic'].toLowerCase() == command.name.toLowerCase()) {
+            output += `\n${command.usage}\n\n${command.description}`;
+          }
+        }
+
         return `${output}\n`;
+
+      // Built-in prefix command
+      } else if ([1, (state.commandPrefix ? state.commandPrefix.length : undefined), defaultPrefix.length].includes(commandMatcher.groups['fullCommand'].indexOf('prefix'))) {
+        state.stop = true;     // Make sure to stop AI output
+        output += `\n> ${commandMatcher.groups['fullCommand']}\n`;
+
+        if (!commandMatcher.groups['prefix']) {
+          output += state.commandPrefix ? `Your current command prefixes are "${state.commandPrefix}" and "${defaultPrefix}".` : `Your current command prefix is "${defaultPrefix}".`;
+        } else if (commandMatcher.groups['prefix'].toLowerCase() == 'none') {
+          state.commandPrefix = undefined;
+          output += `Your custom command prefix has now been unset.`;
+        } else {
+          state.commandPrefix = commandMatcher.groups['prefix'];
+          output += `Your custom command prefix has now been set to "${state.commandPrefix}".`;
+        }
+
+        output += `\n\nRemember that for the "prefix" and "help" commands, you can always use the built-in "/" prefix.`;
+
+        return `${output}\n`;
+
       } else {
-        return `> ${commandMatcher.groups['fullCommand']}\n"${commandMatcher.groups['command']}" is not an available command!\nDid you mean one of these?\n    ${getCloseMatches(commandMatcher.groups['command'], state.commands.map(function(command){return command.name}), 5).join('\n    ')}`;
+        // Get command and initial args
+        const command = getCommandByName(commandMatcher.groups['command']);
+        var args = commandMatcher.groups['args'] ? groupArgs(commandMatcher.groups['args'].split(' ')) : [];
+        args.unshift(commandMatcher.groups['fullCommand'].slice(commandMatcher.groups['fullCommand'].indexOf(commandMatcher.groups['command'])))
+
+        if (command) {
+          // Display command that was run if command should be visible
+          if (command.visible) {
+            output += `\n> ${commandMatcher.groups['fullCommand']}\n`;
+          }
+
+          try {
+            output += command.run(args);    // Display the command's text output
+          } catch(err) {
+            output = err.toString()
+          }
+          return `${output}\n`;
+        } else {
+          return `> ${commandMatcher.groups['fullCommand']}\n"${commandMatcher.groups['command']}" is not an available command!\nDid you mean one of these?\n    ${getCloseMatches(commandMatcher.groups['command'], state.commands.map(function(command){return command.name}), 5).join('\n    ')}`;
+        }
       }
     }
   }
@@ -168,14 +169,18 @@ function groupArgs(args) {
 
         // Check if the item has the opening delimiter
         if (item.startsWith(open)) {
-          delim = close;    // Save closing delimiter so we can check for it later
-          combiner.push(item.slice(open.length));
-          break;
+          if (item.endsWith(close)) {
+            resultArgs.push(item.slice(1, -1));
+          } else {
+            delim = close;    // Save closing delimiter so we can check for it later
+            combiner.push(item.slice(open.length));
+            break;
+          }
         }
       }
 
       // If we passed through the loop without needing to combine, push the argument to the result array
-      if (!combiner) {
+      if (combiner.length == 0) {
         resultArgs.push(item);
       }
 
@@ -252,7 +257,8 @@ function getCloseMatches(word, possibilities, n = 3, cutoff = 0.6) {
 }
 
 // The following is copied from jsdifflib directly, since its API is so similar
-// to Python's difflib module that it was the most convenient to use.
+// to Python's difflib module that it was the most convenient to use. Licencing
+// information for jsdifflib is included below.
 
 /***
 This is part of jsdifflib v1.0. <http://snowtide.com/jsdifflib>
